@@ -25,15 +25,49 @@
         </button>
       </section>
 
-      <section class="gallerie" id="gallery" aria-live="polite">
-        <!-- Les images viendront ici -->
+      <!-- Vue ALBUMS -->
+      <section id="albums-view" class="gallerie" aria-label="Albums">
+        <div id="albums-grid" class="grid"></div>
       </section>
+
+      <!-- Vue PHOTOS (contenu d’un album) -->
+      <section
+        id="photos-view"
+        class="gallerie hidden"
+        aria-label="Photos de l’album"
+      >
+        <div
+          class="photos-header"
+          style="
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+          "
+        >
+          <button id="back-to-albums" type="button">← Albums</button>
+          <h2 id="album-title" style="margin: 0; font-size: 1.1rem"></h2>
+        </div>
+        <div id="photos-grid" class="grid"></div>
+      </section>
+      <div
+        id="lightbox"
+        class="lightbox hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Aperçu photo"
+      >
+        <button class="lb-btn lb-close" aria-label="Fermer">×</button>
+        <button class="lb-btn lb-prev" aria-label="Précédente">‹</button>
+        <img id="lightbox-image" src="" alt="Photo en grand" />
+        <button class="lb-btn lb-next" aria-label="Suivante">›</button>
+      </div>
     </main>
 
     <footer class="site-footer">
       <img src="assets/footer.png" alt="Bannière décorative du bas de page" />
     </footer>
 
-    <script src="app.js" defer></script>
+    <script src="./app.js" defer></script>
   </body>
 </html>
