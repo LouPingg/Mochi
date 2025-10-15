@@ -9,16 +9,63 @@ body {
   background-size: contain;   
   background-position: center;
   background-attachment: fixed;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
-
+main {
+    flex: 1;
+}
 .site-header {
   display: flex;
   justify-content: center;
-  background-color: antiquewhite;
+  background: linear-gradient(135deg, #2f94ce, #000000 50%, #2f94ce);;
 }
 
 .logo {
   max-width: 300px;
   height: auto;
+}
+
+.filtres {
+    display: flex;
+    justify-content: center;
+    padding: 50px;
+    gap: 50px;
+   
+   
+}
+
+.gallerie { 
+    margin-left: 300px;
+    margin-right: 300px;
+    background: rgb(104, 159, 207);
+    border: 1px, solid;
+    min-height: 500px;
+    margin-bottom: 50px;
+}
+
+button { 
+    color: rgba(0, 200, 255, 1);
+    background-color: transparent;
+    border: none;
+    font-size: 20px;
+}
+
+
+
+
+
+
+.site-footer { 
+    display: flex;
+    justify-content: center;
+}
+
+.site-footer img { 
+    display: block;
+    height: 400px;
+    object-fit: fill;    
+    width: 100%;
 }
