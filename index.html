@@ -1,23 +1,37 @@
 <!DOCTYPE html>
 <html lang="fr">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Mochi pics</title>
+    <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <header>
-      <img src="" alt="" />
+    <header class="site-header">
+      <img src="assets/logo.png" alt="Logo Mochi pics" class="logo" />
     </header>
-    <main>
-      <section class="filtres">
-        <button></button>
-        <button></button>
+
+    <main class="container">
+      <section class="filtres" aria-label="Filtrer la galerie">
+        <button
+          class="filter-btn is-active"
+          type="button"
+          data-filter="portrait"
+        >
+          Portraits
+        </button>
+        <button class="filter-btn" type="button" data-filter="landscape">
+          Paysages
+        </button>
       </section>
-      <section class="gallerie"></section>
+
+      <section class="gallerie" id="gallery" aria-live="polite">
+        <!-- Les images viendront ici -->
+      </section>
     </main>
-    <footer>
-      <img src="" alt="" />
+
+    <footer class="site-footer">
+      <img src="assets/footer.png" alt="Bannière décorative du bas de page" />
     </footer>
   </body>
 </html>

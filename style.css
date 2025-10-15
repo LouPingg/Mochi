@@ -1,0 +1,24 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-image: url("../assets/fond.png");
+  background-size: contain;   
+  background-position: center;
+  background-attachment: fixed;
+}
+
+
+.site-header {
+  display: flex;
+  justify-content: center;
+  background-color: antiquewhite;
+}
+
+.logo {
+  max-width: 300px;
+  height: auto;
+}
