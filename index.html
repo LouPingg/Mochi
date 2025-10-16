@@ -8,10 +8,13 @@
   </head>
   <body>
     <header class="site-header">
-      <img src="assets/logo.png" alt="Logo Mochi pics" class="logo" />
+      <a href="#" id="home-link" aria-label="Retour à l'accueil">
+        <img src="assets/logo.png" alt="Logo Mochi pics" class="logo" />
+      </a>
     </header>
 
     <main class="container">
+      <!-- Filtres -->
       <section class="filtres" aria-label="Filtrer la galerie">
         <button
           class="filter-btn is-active"
@@ -25,31 +28,99 @@
         </button>
       </section>
 
-      <!-- Vue ALBUMS -->
+      <!-- Panneau admin -->
+      <section
+        id="admin-panel"
+        class="admin hidden"
+        aria-label="Panneau d'administration"
+      >
+        <!-- Connexion -->
+        <form id="login-form" class="admin-box admin-logged-out">
+          <h3>Connexion admin</h3>
+          <div class="row">
+            <label>Utilisateur</label>
+            <input type="text" name="username" placeholder="admin" required />
+          </div>
+          <div class="row">
+            <label>Mot de passe</label>
+            <input
+              type="password"
+              name="password"
+              placeholder="••••••••"
+              required
+            />
+          </div>
+          <button type="submit" class="btn">Se connecter</button>
+          <small class="hint">Cookie de session HttpOnly (7 jours)</small>
+        </form>
+
+        <!-- Connecté -->
+        <div class="admin-logged-in hidden">
+          <div class="admin-actions">
+            <form id="create-album-form" class="admin-box">
+              <h3>Créer un album + 1ʳᵉ photo</h3>
+
+              <div class="row">
+                <label>Titre de l’album</label>
+                <input
+                  type="text"
+                  name="title"
+                  placeholder="Nom de l'album"
+                  required
+                />
+              </div>
+
+              <div class="row">
+                <label>URL image (optionnel si fichier)</label>
+                <input type="url" name="url" placeholder="https://..." />
+              </div>
+
+              <div class="row">
+                <label>Ou choisir un fichier</label>
+                <input type="file" name="file" accept="image/*" />
+              </div>
+
+              <div class="row">
+                <label>Orientation (si URL)</label>
+                <select name="orientation">
+                  <option value="">Auto (si fichier)</option>
+                  <option value="landscape">Paysage</option>
+                  <option value="portrait">Portrait</option>
+                </select>
+              </div>
+
+              <button type="submit" class="btn">Créer</button>
+            </form>
+
+            <div class="admin-box">
+              <h3>Session</h3>
+              <button id="logout-btn" class="btn btn-danger">
+                Se déconnecter
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Vue albums -->
       <section id="albums-view" class="gallerie" aria-label="Albums">
         <div id="albums-grid" class="grid"></div>
       </section>
 
-      <!-- Vue PHOTOS (contenu d’un album) -->
+      <!-- Vue photos -->
       <section
         id="photos-view"
         class="gallerie hidden"
         aria-label="Photos de l’album"
       >
-        <div
-          class="photos-header"
-          style="
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 12px;
-          "
-        >
+        <div class="photos-header">
           <button id="back-to-albums" type="button">← Albums</button>
-          <h2 id="album-title" style="margin: 0; font-size: 1.1rem"></h2>
+          <h2 id="album-title"></h2>
         </div>
         <div id="photos-grid" class="grid"></div>
       </section>
+
+      <!-- Lightbox -->
       <div
         id="lightbox"
         class="lightbox hidden"

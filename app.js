@@ -1,75 +1,24 @@
-// =====================
-// Données de démo
-// =====================
-const albums = [
-  {
-    id: "a1",
-    title: "Soirée de samedi",
-    cover: "https://picsum.photos/id/1011/800/540",
-    photos: [
-      {
-        id: "p1",
-        url: "https://picsum.photos/id/1011/1200/800",
-        orientation: "landscape",
-      },
-      {
-        id: "p2",
-        url: "https://picsum.photos/id/1027/800/1200",
-        orientation: "portrait",
-      },
-      {
-        id: "p3",
-        url: "https://picsum.photos/id/1035/1200/800",
-        orientation: "landscape",
-      },
-      {
-        id: "p4",
-        url: "https://picsum.photos/id/1005/800/1200",
-        orientation: "portrait",
-      },
-    ],
-  },
-  {
-    id: "a2",
-    title: "Balade au parc",
-    cover: "https://picsum.photos/id/1062/800/540",
-    photos: [
-      {
-        id: "p5",
-        url: "https://picsum.photos/id/1062/1200/800",
-        orientation: "landscape",
-      },
-      {
-        id: "p6",
-        url: "https://picsum.photos/id/1025/800/1200",
-        orientation: "portrait",
-      },
-      {
-        id: "p7",
-        url: "https://picsum.photos/id/1043/1200/800",
-        orientation: "landscape",
-      },
-      {
-        id: "p8",
-        url: "https://picsum.photos/id/1021/800/1200",
-        orientation: "portrait",
-      },
-    ],
-  },
-];
+const API = "http://127.0.0.1:5000";
 
-// =====================
-// Sélecteurs
-// =====================
+/* === Sélecteurs === */
 const albumsView = document.getElementById("albums-view");
 const albumsGrid = document.getElementById("albums-grid");
 const photosView = document.getElementById("photos-view");
 const photosGrid = document.getElementById("photos-grid");
 const albumTitle = document.getElementById("album-title");
 const backBtn = document.getElementById("back-to-albums");
+const homeLink = document.getElementById("home-link");
 
 const btnPortrait = document.querySelector('[data-filter="portrait"]');
 const btnLandscape = document.querySelector('[data-filter="landscape"]');
+
+// Admin UI
+const adminPanel = document.getElementById("admin-panel");
+const loginForm = document.getElementById("login-form");
+const logoutBtn = document.getElementById("logout-btn");
+const adminLoggedIn = adminPanel?.querySelector(".admin-logged-in");
+const adminLoggedOut = adminPanel?.querySelector(".admin-logged-out");
+const createAlbumForm = document.getElementById("create-album-form");
 
 // Lightbox
 const lightbox = document.getElementById("lightbox");
@@ -78,19 +27,30 @@ const lbCloseBtn = document.querySelector(".lb-close");
 const lbPrevBtn = document.querySelector(".lb-prev");
 const lbNextBtn = document.querySelector(".lb-next");
 
-// =====================
-// État
-// =====================
-let currentAlbum = null; // album ouvert (ou null si vue Albums)
-let currentFilter = "portrait"; // 'portrait' | 'landscape'
-let lbIndex = 0; // index courant dans la liste filtrée
+/* === État === */
+let albums = [];
+let currentAlbum = null;
+let currentFilter = "portrait";
+let isAdmin = false;
+let lbIndex = 0;
 
-// =====================
-// Helpers
-// =====================
+/* === Helpers === */
+function setFilter(value) {
+  currentFilter = value;
+  // UI boutons
+  document
+    .querySelectorAll("[data-filter]")
+    .forEach((b) => b.classList.remove("is-active"));
+  (value === "portrait" ? btnPortrait : btnLandscape)?.classList.add(
+    "is-active"
+  );
+  // Rendu
+  if (currentAlbum) renderPhotos();
+  else renderAlbums();
+}
 function firstPhotoUrlByOrientation(album, orientation) {
   const p = album.photos.find((ph) => ph.orientation === orientation);
-  return p ? p.url : album.cover;
+  return p ? p.url : "";
 }
 function countByOrientation(album, orientation) {
   return album.photos.filter((ph) => ph.orientation === orientation).length;
@@ -99,10 +59,42 @@ function getCurrentPhotoList() {
   if (!currentAlbum) return [];
   return currentAlbum.photos.filter((p) => p.orientation === currentFilter);
 }
+function toggleAdminUI() {
+  if (!adminPanel) return;
+  adminPanel.classList.remove("hidden");
+  if (isAdmin) {
+    adminLoggedOut?.classList.add("hidden");
+    adminLoggedIn?.classList.remove("hidden");
+  } else {
+    adminLoggedIn?.classList.add("hidden");
+    adminLoggedOut?.classList.remove("hidden");
+  }
+}
 
-// =====================
-// Rendu
-// =====================
+/* === API === */
+async function checkAuth() {
+  try {
+    const r = await fetch(`${API}/auth/me`, { credentials: "include" });
+    const j = await r.json();
+    isAdmin = !!j.authenticated;
+  } catch {
+    isAdmin = false;
+  }
+  toggleAdminUI();
+}
+async function loadAlbums() {
+  try {
+    const res = await fetch(`${API}/albums`, { credentials: "include" });
+    if (!res.ok) throw new Error("Erreur /albums " + res.status);
+    albums = await res.json();
+    renderAlbums();
+  } catch (err) {
+    console.error(err);
+    albumsGrid.innerHTML = `<p style="opacity:.8;text-align:center;padding:20px">Erreur de chargement des albums.</p>`;
+  }
+}
+
+/* === Rendu === */
 function renderAlbums() {
   const visible = albums.filter(
     (a) => countByOrientation(a, currentFilter) > 0
@@ -110,52 +102,56 @@ function renderAlbums() {
 
   albumsGrid.innerHTML = visible
     .map((a) => {
-      const coverForFilter = firstPhotoUrlByOrientation(a, currentFilter);
+      const cover = firstPhotoUrlByOrientation(a, currentFilter);
       const count = countByOrientation(a, currentFilter);
       return `
-      <article class="album-card" data-album="${a.id}" tabindex="0" aria-label="Ouvrir l'album ${a.title}">
-        <img src="${coverForFilter}" alt="Aperçu ${currentFilter} — ${a.title}" loading="lazy">
+      <article class="album-card" data-album="${
+        a.id
+      }" tabindex="0" aria-label="Ouvrir ${a.title}">
+        ${
+          cover
+            ? `<img src="${cover}" alt="Aperçu ${a.title}" loading="lazy">`
+            : ""
+        }
         <div class="title">${a.title}</div>
-        <div class="meta">${count} photo(s) ${currentFilter}</div>
-      </article>
-    `;
+        <div class="meta">${count} photo(s)</div>
+        ${
+          isAdmin
+            ? `<button class="btn-trash" data-del-album="${a.id}">🗑</button>`
+            : ""
+        }
+      </article>`;
     })
     .join("");
 
-  if (visible.length === 0) {
-    albumsGrid.innerHTML = `<p style="opacity:.8;text-align:center;padding:20px">
-      Aucun album ne contient de photos <strong>${currentFilter}</strong>.
-    </p>`;
-  }
+  if (!visible.length)
+    albumsGrid.innerHTML = `<p style="opacity:.8;text-align:center;padding:20px">Aucun album ne contient de photo <strong>${currentFilter}</strong>.</p>`;
 
   photosView.classList.add("hidden");
   albumsView.classList.remove("hidden");
 }
-
 function renderPhotos() {
   if (!currentAlbum) return;
   const list = getCurrentPhotoList();
-
   photosGrid.innerHTML = list
     .map(
       (p, i) => `
-    <figure class="card ${p.orientation}" data-index="${i}">
-      <img src="${p.url}" alt="${p.orientation}" loading="lazy">
-    </figure>
-  `
+      <figure class="card ${p.orientation}" data-index="${i}">
+        <img src="${p.url}" alt="${p.orientation}">
+        ${
+          isAdmin
+            ? `<button class="btn-trash" data-del-photo="${p.id}">🗑</button>`
+            : ""
+        }
+      </figure>`
     )
     .join("");
 
-  if (list.length === 0) {
-    photosGrid.innerHTML = `<p style="opacity:.8;text-align:center;padding:20px">
-      Aucune photo <strong>${currentFilter}</strong> dans cet album.
-    </p>`;
-  }
+  if (!list.length)
+    photosGrid.innerHTML = `<p style="opacity:.8;text-align:center;padding:20px">Aucune photo <strong>${currentFilter}</strong> dans cet album.</p>`;
 }
 
-// =====================
-// Navigation Albums/Photos
-// =====================
+/* === Navigation === */
 function openAlbum(id) {
   currentAlbum = albums.find((a) => a.id === id);
   if (!currentAlbum) return;
@@ -164,123 +160,221 @@ function openAlbum(id) {
   albumsView.classList.add("hidden");
   photosView.classList.remove("hidden");
 }
-
 function backToAlbums() {
   currentAlbum = null;
-  renderAlbums(); // ré-affiche la liste filtrée
+  renderAlbums();
 }
 
-// =====================
-// Lightbox
-// =====================
+/* === Lightbox === */
 function openLightbox(index) {
   const list = getCurrentPhotoList();
-  if (!list.length || !lightbox) return;
+  if (!list.length) return;
   lbIndex = Math.max(0, Math.min(index, list.length - 1));
   updateLightbox();
   lightbox.classList.remove("hidden");
 }
 function updateLightbox() {
   const list = getCurrentPhotoList();
-  if (!list.length || !lightboxImage) return;
+  if (!list.length) return;
   lightboxImage.src = list[lbIndex].url;
 }
 function closeLightbox() {
-  if (!lightbox) return;
   lightbox.classList.add("hidden");
-  if (lightboxImage) lightboxImage.src = "";
+  lightboxImage.src = "";
 }
 function nextPhoto() {
   const list = getCurrentPhotoList();
-  if (!list.length) return;
   lbIndex = (lbIndex + 1) % list.length;
   updateLightbox();
 }
 function prevPhoto() {
   const list = getCurrentPhotoList();
-  if (!list.length) return;
   lbIndex = (lbIndex - 1 + list.length) % list.length;
   updateLightbox();
 }
-function onContextChanged() {
-  if (lightbox && !lightbox.classList.contains("hidden")) closeLightbox();
-}
 
-// =====================
-// Événements
-// =====================
-
-// Ouvrir album
+/* === Events publics === */
 albumsGrid.addEventListener("click", (e) => {
+  const del = e.target.closest("[data-del-album]");
+  if (del && isAdmin) {
+    const id = del.dataset.delAlbum;
+    if (confirm("Supprimer cet album ?")) {
+      fetch(`${API}/albums/${id}`, { method: "DELETE", credentials: "include" })
+        .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+        .then(() => {
+          albums = albums.filter((a) => a.id !== id);
+          renderAlbums();
+        });
+    }
+    return;
+  }
   const card = e.target.closest("[data-album]");
   if (card) openAlbum(card.dataset.album);
 });
+
+/* Ouverture album au clavier (Enter/Espace) */
 albumsGrid.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") {
-    const card = e.target.closest("[data-album]");
-    if (card) openAlbum(card.dataset.album);
+  const card = e.target.closest("[data-album]");
+  if (!card) return;
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    openAlbum(card.dataset.album);
   }
 });
 
-// Retour
-backBtn.addEventListener("click", () => {
-  onContextChanged();
-  backToAlbums();
-});
-
-// Filtres (actifs en vue Albums + Photos)
-function activateFilter(btn, value) {
-  document
-    .querySelectorAll("[data-filter]")
-    .forEach((b) => b.classList.remove("is-active"));
-  btn.classList.add("is-active");
-  currentFilter = value;
-
-  if (currentAlbum) renderPhotos();
-  else renderAlbums();
-
-  onContextChanged(); // ferme la lightbox si ouverte
-}
-btnPortrait?.addEventListener("click", () =>
-  activateFilter(btnPortrait, "portrait")
-);
-btnLandscape?.addEventListener("click", () =>
-  activateFilter(btnLandscape, "landscape")
-);
-
-// Ouvrir la lightbox (dans la vue Photos)
 photosGrid.addEventListener("click", (e) => {
+  const del = e.target.closest("[data-del-photo]");
+  if (del && isAdmin) {
+    const id = del.dataset.delPhoto;
+    if (confirm("Supprimer cette photo ?")) {
+      fetch(`${API}/photos/${id}`, { method: "DELETE", credentials: "include" })
+        .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+        .then(() => {
+          currentAlbum.photos = currentAlbum.photos.filter((p) => p.id !== id);
+          renderPhotos();
+        });
+    }
+    return;
+  }
   const fig = e.target.closest("figure.card");
   if (!fig) return;
-  const index = Number(fig.dataset.index || 0);
-  openLightbox(index);
+  openLightbox(Number(fig.dataset.index));
+});
+backBtn.addEventListener("click", backToAlbums);
+
+// clic logo = retour accueil + refresh doux
+homeLink?.addEventListener("click", async (e) => {
+  e.preventDefault();
+  currentAlbum = null;
+  await loadAlbums(); // récupère les derniers albums du serveur
+  setFilter(currentFilter); // garde le filtre actuel
+  window.scrollTo({ top: 0, behavior: "smooth" });
 });
 
-// Contrôles lightbox
-lbCloseBtn && lbCloseBtn.addEventListener("click", closeLightbox);
-lbNextBtn && lbNextBtn.addEventListener("click", nextPhoto);
-lbPrevBtn && lbPrevBtn.addEventListener("click", prevPhoto);
-lightbox &&
-  lightbox.addEventListener("click", (e) => {
-    if (e.target === lightbox) closeLightbox();
-  });
+// Filtres
+btnPortrait.addEventListener("click", () => setFilter("portrait"));
+btnLandscape.addEventListener("click", () => setFilter("landscape"));
+
+/* === Lightbox controls === */
+lbCloseBtn.addEventListener("click", closeLightbox);
+lbNextBtn.addEventListener("click", nextPhoto);
+lbPrevBtn.addEventListener("click", prevPhoto);
+lightbox.addEventListener("click", (e) => {
+  if (e.target === lightbox) closeLightbox();
+});
 window.addEventListener("keydown", (e) => {
-  if (!lightbox || lightbox.classList.contains("hidden")) return;
+  if (lightbox.classList.contains("hidden")) return;
   if (e.key === "Escape") closeLightbox();
   if (e.key === "ArrowRight") nextPhoto();
   if (e.key === "ArrowLeft") prevPhoto();
 });
 
-// =====================
-// Init
-// =====================
-(function init() {
-  // état visuel filtre par défaut
-  document
-    .querySelectorAll("[data-filter]")
-    .forEach((b) => b.classList.remove("is-active"));
-  btnPortrait?.classList.add("is-active");
-  currentFilter = "portrait";
+/* === Admin === */
+loginForm?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const fd = new FormData(loginForm);
+  const body = { username: fd.get("username"), password: fd.get("password") };
+  try {
+    const r = await fetch(`${API}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) throw new Error("Login invalide");
+    isAdmin = true;
+    toggleAdminUI();
+    await loadAlbums();
+    loginForm.reset();
+  } catch (err) {
+    alert(err.message);
+  }
+});
+logoutBtn?.addEventListener("click", async () => {
+  await fetch(`${API}/auth/logout`, { credentials: "include" });
+  isAdmin = false;
+  toggleAdminUI();
+});
 
-  renderAlbums();
+/* === Créer album + 1ʳᵉ photo (anti double-submit) === */
+createAlbumForm?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const submitBtn = createAlbumForm.querySelector('button[type="submit"]');
+  submitBtn.disabled = true;
+  const originalLabel = submitBtn.textContent;
+  submitBtn.textContent = "Création...";
+
+  const fd = new FormData(createAlbumForm);
+  const title = fd.get("title");
+  const file = fd.get("file");
+  const url = fd.get("url");
+  const orientation = fd.get("orientation");
+
+  try {
+    // 1) Créer l’album
+    let r = await fetch(`${API}/albums`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ title }),
+    });
+    let data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || "Création de l'album impossible");
+
+    const album = data;
+    albums.push(album);
+
+    // 2) Ajouter la première photo (si fournie)
+    let createdOrientation = null;
+    if ((file && file.size > 0) || url) {
+      if (file && file.size > 0) {
+        const form = new FormData();
+        form.append("albumId", album.id);
+        form.append("file", file);
+        r = await fetch(`${API}/photos`, {
+          method: "POST",
+          credentials: "include",
+          body: form,
+        });
+      } else {
+        r = await fetch(`${API}/photos`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            albumId: album.id,
+            url,
+            orientation: orientation || "",
+          }),
+        });
+      }
+      data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data?.error || "Ajout de la photo impossible");
+
+      const photo = data;
+      const a = albums.find((a) => a.id === album.id);
+      if (a) a.photos.push(photo);
+      createdOrientation = photo.orientation || null;
+    }
+
+    // 3) Revenir à la page Albums, s'assurer que l’album est visible
+    currentAlbum = null;
+    if (createdOrientation) setFilter(createdOrientation);
+    else setFilter(currentFilter);
+    renderAlbums(); // rendu immédiat sans reload
+    createAlbumForm.reset();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } catch (err) {
+    alert(err.message);
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalLabel;
+  }
+});
+
+/* === Init === */
+(async function init() {
+  setFilter("portrait"); // active le bouton et rend la grille
+  await checkAuth();
+  await loadAlbums();
 })();
