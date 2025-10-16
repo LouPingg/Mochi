@@ -1,6 +1,12 @@
-const API = "https://mochi-backend-ingj.onrender.com";
+/* ================ CONFIG API ================ */
 
-/* === Sélecteurs === */
+const PROD_API = "https://mochi-backend-ingj.onrender.com"; //
+
+/** Auto: si on est sur GitHub Pages/Netlify => PROD, sinon LOCAL */
+const isProdHost = /github\.io|netlify\.app$/i.test(location.hostname);
+const API = isProdHost ? PROD_API : "http://127.0.0.1:5000";
+
+/* ================ SÉLECTEURS ================ */
 const albumsView = document.getElementById("albums-view");
 const albumsGrid = document.getElementById("albums-grid");
 const photosView = document.getElementById("photos-view");
@@ -27,14 +33,14 @@ const lbCloseBtn = document.querySelector(".lb-close");
 const lbPrevBtn = document.querySelector(".lb-prev");
 const lbNextBtn = document.querySelector(".lb-next");
 
-/* === État === */
+/* ================ ÉTAT ================ */
 let albums = [];
 let currentAlbum = null;
 let currentFilter = "portrait";
 let isAdmin = false;
 let lbIndex = 0;
 
-/* === Helpers === */
+/* ================ HELPERS ================ */
 function setFilter(value) {
   currentFilter = value;
   // UI boutons
@@ -71,7 +77,7 @@ function toggleAdminUI() {
   }
 }
 
-/* === API === */
+/* ================ API ================ */
 async function checkAuth() {
   try {
     const r = await fetch(`${API}/auth/me`, { credentials: "include" });
@@ -82,6 +88,7 @@ async function checkAuth() {
   }
   toggleAdminUI();
 }
+
 async function loadAlbums() {
   try {
     const res = await fetch(`${API}/albums`, { credentials: "include" });
@@ -94,7 +101,7 @@ async function loadAlbums() {
   }
 }
 
-/* === Rendu === */
+/* ================ RENDU ================ */
 function renderAlbums() {
   const visible = albums.filter(
     (a) => countByOrientation(a, currentFilter) > 0
@@ -124,12 +131,14 @@ function renderAlbums() {
     })
     .join("");
 
-  if (!visible.length)
+  if (!visible.length) {
     albumsGrid.innerHTML = `<p style="opacity:.8;text-align:center;padding:20px">Aucun album ne contient de photo <strong>${currentFilter}</strong>.</p>`;
+  }
 
   photosView.classList.add("hidden");
   albumsView.classList.remove("hidden");
 }
+
 function renderPhotos() {
   if (!currentAlbum) return;
   const list = getCurrentPhotoList();
@@ -147,11 +156,12 @@ function renderPhotos() {
     )
     .join("");
 
-  if (!list.length)
+  if (!list.length) {
     photosGrid.innerHTML = `<p style="opacity:.8;text-align:center;padding:20px">Aucune photo <strong>${currentFilter}</strong> dans cet album.</p>`;
+  }
 }
 
-/* === Navigation === */
+/* ================ NAVIGATION ================ */
 function openAlbum(id) {
   currentAlbum = albums.find((a) => a.id === id);
   if (!currentAlbum) return;
@@ -165,7 +175,7 @@ function backToAlbums() {
   renderAlbums();
 }
 
-/* === Lightbox === */
+/* ================ LIGHTBOX ================ */
 function openLightbox(index) {
   const list = getCurrentPhotoList();
   if (!list.length) return;
@@ -193,7 +203,7 @@ function prevPhoto() {
   updateLightbox();
 }
 
-/* === Events publics === */
+/* ================ EVENTS PUBLICS ================ */
 albumsGrid.addEventListener("click", (e) => {
   const del = e.target.closest("[data-del-album]");
   if (del && isAdmin) {
@@ -255,7 +265,7 @@ homeLink?.addEventListener("click", async (e) => {
 btnPortrait.addEventListener("click", () => setFilter("portrait"));
 btnLandscape.addEventListener("click", () => setFilter("landscape"));
 
-/* === Lightbox controls === */
+/* Lightbox controls */
 lbCloseBtn.addEventListener("click", closeLightbox);
 lbNextBtn.addEventListener("click", nextPhoto);
 lbPrevBtn.addEventListener("click", prevPhoto);
@@ -269,7 +279,7 @@ window.addEventListener("keydown", (e) => {
   if (e.key === "ArrowLeft") prevPhoto();
 });
 
-/* === Admin === */
+/* ================ ADMIN ================ */
 loginForm?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const fd = new FormData(loginForm);
@@ -290,13 +300,14 @@ loginForm?.addEventListener("submit", async (e) => {
     alert(err.message);
   }
 });
+
 logoutBtn?.addEventListener("click", async () => {
   await fetch(`${API}/auth/logout`, { credentials: "include" });
   isAdmin = false;
   toggleAdminUI();
 });
 
-/* === Créer album + 1ʳᵉ photo (anti double-submit) === */
+/* Créer album + 1ʳᵉ photo (anti double-submit) */
 createAlbumForm?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const submitBtn = createAlbumForm.querySelector('button[type="submit"]');
@@ -357,11 +368,11 @@ createAlbumForm?.addEventListener("submit", async (e) => {
       createdOrientation = photo.orientation || null;
     }
 
-    // 3) Revenir à la page Albums, s'assurer que l’album est visible
+    // 3) Retour à albums + filtre cohérent
     currentAlbum = null;
     if (createdOrientation) setFilter(createdOrientation);
     else setFilter(currentFilter);
-    renderAlbums(); // rendu immédiat sans reload
+    renderAlbums();
     createAlbumForm.reset();
     window.scrollTo({ top: 0, behavior: "smooth" });
   } catch (err) {
@@ -372,9 +383,17 @@ createAlbumForm?.addEventListener("submit", async (e) => {
   }
 });
 
-/* === Init === */
+/* ================ INIT (force l'UI admin visible) ================ */
 (async function init() {
-  setFilter("portrait"); // active le bouton et rend la grille
+  setFilter("portrait");
+  // Affiche tout de suite le panneau admin (mode déconnecté par défaut)
+  isAdmin = false;
+  toggleAdminUI();
+
+  // Puis on vérifie réellement côté serveur (cookie)
   await checkAuth();
   await loadAlbums();
+
+  // Petit log utile en prod
+  console.log("[Mochi] API =", API, "| host =", location.hostname);
 })();
