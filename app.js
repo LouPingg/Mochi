@@ -386,14 +386,25 @@ createAlbumForm?.addEventListener("submit", async (e) => {
 /* ================ INIT (force l'UI admin visible) ================ */
 (async function init() {
   setFilter("portrait");
-  // Affiche tout de suite le panneau admin (mode déconnecté par défaut)
+
+  // 1) Affiche tout de suite le panneau admin en mode "déconnecté"
   isAdmin = false;
   toggleAdminUI();
 
-  // Puis on vérifie réellement côté serveur (cookie)
+  // 2) Tente l'auth serveur (si cookie valide, on bascule en "connecté")
   await checkAuth();
+
+  // 3) Charge les albums
   await loadAlbums();
 
-  // Petit log utile en prod
-  console.log("[Mochi] API =", API, "| host =", location.hostname);
+  // 4) Filet de sécurité : si pour une raison X, le panneau est encore masqué, on l'affiche
+  setTimeout(() => {
+    const panel = document.getElementById("admin-panel");
+    if (panel && panel.classList.contains("hidden")) {
+      isAdmin = false;
+      toggleAdminUI();
+    }
+  }, 1500);
+
+  console.log("[Mochi] Init OK | API =", API);
 })();
