@@ -66,17 +66,21 @@ function getCurrentPhotoList() {
   return currentAlbum.photos.filter((p) => p.orientation === currentFilter);
 }
 function toggleAdminUI() {
-  if (!adminPanel) return;
-  adminPanel.classList.remove("hidden");
+  const panel = document.getElementById("admin-panel");
+  if (!panel) return; // DOM pas encore prêt (par sécurité)
+  panel.classList.remove("hidden");
+
+  const loggedIn = panel.querySelector(".admin-logged-in");
+  const loggedOut = panel.querySelector(".admin-logged-out");
+
   if (isAdmin) {
-    adminLoggedOut?.classList.add("hidden");
-    adminLoggedIn?.classList.remove("hidden");
+    loggedOut?.classList.add("hidden");
+    loggedIn?.classList.remove("hidden");
   } else {
-    adminLoggedIn?.classList.add("hidden");
-    adminLoggedOut?.classList.remove("hidden");
+    loggedIn?.classList.add("hidden");
+    loggedOut?.classList.remove("hidden");
   }
 }
-
 /* ================ API ================ */
 async function checkAuth() {
   try {
