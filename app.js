@@ -1,5 +1,5 @@
 /* ================ CONFIG API ================ */
-const PROD_API = "https://TON-SERVICE.onrender.com"; // ← remplace par ton URL Render
+const PROD_API = "https://mochi-backend-ingj.onrender.com"; // ← remplace par ton URL Render
 const isProdHost = /github\.io|netlify\.app$/i.test(location.hostname);
 const API = isProdHost ? PROD_API : "http://127.0.0.1:5000";
 
