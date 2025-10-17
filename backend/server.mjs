@@ -30,7 +30,11 @@ const {
    App & Health Check
 ========================= */
 const app = express();
-app.get("/ping", (_req, res) => res.status(200).type("text/plain").send("ok"));
+
+// ✅ Routes de test & debug (signées pour Render)
+app.get("/ping", (_req, res) =>
+  res.status(200).type("text/plain").send("ok-mochi-v1")
+);
 app.head("/ping", (_req, res) => res.sendStatus(200));
 
 /* =========================
@@ -246,12 +250,32 @@ app.delete("/photos/:id", requireAdmin, (req, res) => {
 });
 
 /* =========================
-   Divers
+   Divers + Debug
 ========================= */
-app.get("/", (_req, res) => res.send("✅ Mochi backend en ligne"));
+app.get("/", (_req, res) =>
+  res.type("text/plain").send("✅ Mochi backend en ligne v4")
+);
+
 app.get("/version", (_req, res) =>
   res.json({ node: process.version, env: NODE_ENV, origins: ALLOWED_ORIGINS })
 );
+
+// 🔍 Route debug pour Render
+app.get("/__debug", (_req, res) => {
+  res.json({
+    cwd: process.cwd(),
+    node: process.version,
+    env: {
+      NODE_ENV: process.env.NODE_ENV,
+      PORT: process.env.PORT,
+    },
+  });
+});
+
+// 404 signé pour vérifier qu'on est bien sur ton serveur
+app.use((req, res) => {
+  res.status(404).type("text/plain").send("404 – mochi backend (express)");
+});
 
 /* =========================
    Start
