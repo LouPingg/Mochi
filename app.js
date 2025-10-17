@@ -1,5 +1,5 @@
 /* ================ CONFIG API ================ */
-const PROD_API = "https://mochi-backend-ingj.onrender.com"; // ← remplace par ton URL Render
+const PROD_API = "https://mochi-backend-ingi.onrender.com"; // ← ton vrai lien Render
 const isProdHost = /github\.io|netlify\.app$/i.test(location.hostname);
 const API = isProdHost ? PROD_API : "http://127.0.0.1:5000";
 
@@ -43,9 +43,6 @@ const createAlbumForm = document.getElementById("create-album-form");
 /* Lightbox */
 const lightbox = document.getElementById("lightbox");
 const lightboxImage = document.getElementById("lightbox-image");
-const lbCloseBtn = document.querySelector(".lb-close");
-const lbPrevBtn = document.querySelector(".lb-prev");
-const lbNextBtn = document.querySelector(".lb-next");
 
 /* ================ ÉTAT ================ */
 let albums = [];
@@ -263,14 +260,6 @@ document.getElementById("albums-grid")?.addEventListener("click", (e) => {
   const card = e.target.closest("[data-album]");
   if (card) openAlbum(card.dataset.album);
 });
-document.getElementById("albums-grid")?.addEventListener("keydown", (e) => {
-  const card = e.target.closest("[data-album]");
-  if (!card) return;
-  if (e.key === "Enter" || e.key === " ") {
-    e.preventDefault();
-    openAlbum(card.dataset.album);
-  }
-});
 
 document.getElementById("photos-grid")?.addEventListener("click", (e) => {
   const del = e.target.closest("[data-del-photo]");
@@ -320,11 +309,14 @@ window.addEventListener("keydown", (e) => {
   if (e.key === "ArrowLeft") prevPhoto();
 });
 
-/* Admin */
+/* ================ ADMIN ================ */
+// ✅ Correctif du reset()
 document.getElementById("login-form")?.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const fd = new FormData(e.currentTarget);
+  const formEl = e.currentTarget; // capture avant les await
+  const fd = new FormData(formEl);
   const body = { username: fd.get("username"), password: fd.get("password") };
+
   try {
     const r = await fetch(`${API}/auth/login`, {
       method: "POST",
@@ -334,20 +326,19 @@ document.getElementById("login-form")?.addEventListener("submit", async (e) => {
     });
     const j = await r.json();
     if (!r.ok) throw new Error(j?.error || "Login invalide");
-
-    // Sauvegarde du token (contourne le blocage des cookies tiers)
     if (j?.token) setToken(j.token);
 
     isAdmin = true;
     toggleAdminUI();
     await loadAlbums();
-    e.currentTarget.reset();
+    formEl?.reset?.(); // safe reset
   } catch (err) {
     alert(err.message);
   }
 });
+
 document.getElementById("logout-btn")?.addEventListener("click", async () => {
-  setToken(""); // supprime le Bearer local
+  setToken("");
   await fetch(`${API}/auth/logout`, {
     credentials: "include",
     headers: authHeaders(),
@@ -355,11 +346,12 @@ document.getElementById("logout-btn")?.addEventListener("click", async () => {
   isAdmin = false;
   toggleAdminUI();
 });
+
 document
   .getElementById("create-album-form")
   ?.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const formEl = e.currentTarget;
+    const formEl = e.currentTarget; // capture
     const submitBtn = formEl.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
     const originalLabel = submitBtn.textContent;
@@ -423,7 +415,7 @@ document
       if (createdOrientation) setFilter(createdOrientation);
       else setFilter(currentFilter);
       renderAlbums();
-      formEl.reset();
+      formEl?.reset?.(); // safe reset
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
       alert(err.message);
