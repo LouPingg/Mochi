@@ -12,7 +12,6 @@ dotenv.config();
 
 const {
   PORT = 5000,
-  CORS_ORIGIN = "http://127.0.0.1:5500",
   JWT_SECRET = "change_me",
   ADMIN_USERNAME = "admin",
   ADMIN_PASSWORD_HASH = "",
@@ -26,7 +25,32 @@ const {
    App + Middlewares
 ========================= */
 const app = express();
-app.use(cors({ origin: CORS_ORIGIN, credentials: true }));
+
+/* ===== CORS béton (whitelist + preflight) ===== */
+const RAW_ORIGINS =
+  process.env.CORS_ORIGINS ||
+  process.env.CORS_ORIGIN ||
+  "https://loupingg.github.io,http://127.0.0.1:5500,http://localhost:5500";
+
+const ALLOWED_ORIGINS = RAW_ORIGINS.split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+const corsOptions = {
+  credentials: true,
+  origin(origin, cb) {
+    if (!origin) return cb(null, true); // Requêtes server-to-server
+    if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+    console.warn("❌ CORS blocked origin:", origin);
+    return cb(new Error("CORS: origin not allowed: " + origin), false);
+  },
+  methods: ["GET", "POST", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  optionsSuccessStatus: 204,
+};
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions)); // indispensable pour preflight
+
 app.use(express.json());
 app.use(cookieParser());
 
@@ -46,6 +70,7 @@ if (CLOUD_OK) {
     api_secret: CLOUDINARY_API_SECRET,
   });
 }
+
 const upload = multer({ storage: multer.memoryStorage() });
 
 function cloudUploadFromBuffer(buffer, folder) {
@@ -95,6 +120,7 @@ function getTokenFromReq(req) {
   const m = auth.match(/^Bearer\s+(.+)$/i);
   return cookieTok || (m ? m[1] : null);
 }
+
 function requireAdmin(req, res, next) {
   const token = getTokenFromReq(req);
   if (!token) return res.status(401).json({ error: "unauthorized" });
@@ -123,7 +149,6 @@ app.post("/auth/login", async (req, res) => {
 
   const token = jwt.sign({ role: "admin" }, JWT_SECRET, { expiresIn: "7d" });
 
-  // Cookie (compat local / même domaine)
   res.cookie("token", token, {
     httpOnly: true,
     sameSite: NODE_ENV === "production" ? "None" : "lax",
@@ -131,7 +156,6 @@ app.post("/auth/login", async (req, res) => {
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 
-  // Renvoi aussi le token (fallback pour GitHub Pages ⇄ Render)
   res.json({ ok: true, token });
 });
 
@@ -248,7 +272,7 @@ app.get("/", (_req, res) => res.send("✅ Mochi backend en ligne"));
 ========================= */
 app.listen(PORT, () => {
   console.log(`✅ Backend en ligne sur http://127.0.0.1:${PORT}`);
-  console.log(`CORS_ORIGIN autorisé : ${CORS_ORIGIN}`);
+  console.log("CORS autorisés :", ALLOWED_ORIGINS);
   console.log(`Cloudinary configuré : ${CLOUD_OK ? "oui" : "non"}`);
   console.log(`NODE_ENV : ${NODE_ENV}`);
 });
