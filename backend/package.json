@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "main": "server.mjs",
-  "scripts": { "start": "node ./server.mjs" },
+  "scripts": {
+    "start": "node ./server.mjs"
+  },
   "engines": { "node": "20.x" },
   "dependencies": {
     "bcryptjs": "^2.4.3",
