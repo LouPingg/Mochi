@@ -1,14 +1,10 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "Mochi API",
-  "main": "server.mjs",
   "type": "module",
-  "scripts": {
-    "start": "node server.mjs"
-  },
+  "main": "server.mjs",
+  "scripts": { "start": "node server.mjs" },
   "engines": { "node": "20.x" },
-  "license": "ISC",
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.6",
