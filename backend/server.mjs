@@ -3,54 +3,6 @@ import cors from "cors";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import jwt from "jsonwebtoken";
-import bcrypt from "bcryptjs";
-import { nanoid } from "nanoid";
-import multer from "multer";
-import { v2 as cloudinary } from "cloudinary";
-
-dotenv.config();
-
-const {
-  PORT = 5000,
-  JWT_SECRET = "change_me",
-  ADMIN_USERNAME = "admin",
-  ADMIN_PASSWORD_HASH = "",
-  CLOUDINARY_CLOUD_NAME,
-  CLOUDINARY_API_KEY,
-  CLOUDINARY_API_SECRET,
-  NODE_ENV = "development",
-} = process.env;
-
-/* =========================
-   App + Middlewares
-========================= */
-const app = express();
-
-/* ===== CORS béton (whitelist + preflight) ===== */
-const RAW_ORIGINS =
-  process.env.CORS_ORIGINS ||
-  process.env.CORS_ORIGIN ||
-  "https://loupingg.github.io,http://127.0.0.1:5500,http://localhost:5500";
-
-const ALLOWED_ORIGINS = RAW_ORIGINS.split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
-
-const corsOptions = {
-  credentials: true,
-  origin(origin, cb) {
-    if (!origin) return cb(null, true); // Requêtes server-to-server
-    if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
-    console.warn("❌ CORS blocked origin:", origin);
-    return cb(new Error("CORS: origin not allowed: " + origin), false);
-  },
-  methods: ["GET", "POST", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
-import cookieParser from "cookie-parser";
-import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs"; // bcryptjs : compatible Render
 import { nanoid } from "nanoid";
 import multer from "multer";
@@ -78,8 +30,6 @@ const {
    App & Health Check
 ========================= */
 const app = express();
-
-// ✅ Health check ultra-rapide pour Render
 app.get("/ping", (_req, res) => res.status(200).type("text/plain").send("ok"));
 app.head("/ping", (_req, res) => res.sendStatus(200));
 
@@ -98,17 +48,18 @@ const ALLOWED_ORIGINS = RAW_ORIGINS.split(",")
 const corsOptions = {
   credentials: true,
   origin(origin, cb) {
-    if (!origin) return cb(null, true);
+    if (!origin) return cb(null, true); // ex: curl / server-to-server
     if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+    console.warn("❌ CORS blocked origin:", origin);
     return cb(new Error("CORS not allowed: " + origin), false);
   },
   methods: ["GET", "POST", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   optionsSuccessStatus: 204,
 };
+
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
-
 app.use(express.json());
 app.use(cookieParser());
 
@@ -191,9 +142,7 @@ app.post("/auth/login", async (req, res) => {
   if (username !== ADMIN_USERNAME)
     return res.status(401).json({ error: "bad credentials" });
   if (!ADMIN_PASSWORD_HASH)
-    return res
-      .status(500)
-      .json({ error: "ADMIN_PASSWORD_HASH manquant dans .env" });
+    return res.status(500).json({ error: "ADMIN_PASSWORD_HASH missing" });
 
   const ok = await bcrypt.compare(password || "", ADMIN_PASSWORD_HASH);
   if (!ok) return res.status(401).json({ error: "bad credentials" });
@@ -205,10 +154,11 @@ app.post("/auth/login", async (req, res) => {
     secure: NODE_ENV === "production",
     maxAge: 2 * 60 * 60 * 1000,
   });
-  res.json({ ok: true });
+  // on renvoie aussi le token pour le fallback localStorage côté front
+  res.json({ ok: true, token });
 });
 
-app.post("/auth/logout", (req, res) => {
+app.post("/auth/logout", (_req, res) => {
   res.clearCookie("token");
   res.json({ ok: true });
 });
@@ -225,21 +175,16 @@ app.get("/auth/me", (req, res) => {
 });
 
 /* =========================
-   Routes Albums & Photos
+   Albums & Photos
 ========================= */
 app.get("/albums", (_req, res) => res.json(db.albums));
 
-app.post("/albums", requireAdmin, async (req, res) => {
-  try {
-    const { title } = req.body || {};
-    if (!title) return res.status(400).json({ error: "title required" });
-
-    const album = { id: nanoid(8), title, photos: [] };
-    db.albums.push(album);
-    res.status(201).json(album);
-  } catch (e) {
-    res.status(500).json({ error: e.message || "album create failed" });
-  }
+app.post("/albums", requireAdmin, (req, res) => {
+  const { title } = req.body || {};
+  if (!title) return res.status(400).json({ error: "title required" });
+  const album = { id: nanoid(8), title, photos: [] };
+  db.albums.push(album);
+  res.status(201).json(album);
 });
 
 app.delete("/albums/:id", requireAdmin, (req, res) => {
@@ -261,10 +206,7 @@ app.post("/photos", requireAdmin, upload.single("file"), async (req, res) => {
 
     if (req.file) {
       if (!CLOUD_OK)
-        return res.status(400).json({
-          error: "Cloudinary non configuré ou fichier manquant",
-        });
-
+        return res.status(400).json({ error: "Cloudinary not configured" });
       const up = await cloudUploadFromBuffer(
         req.file.buffer,
         `mochi/${albumId}`
@@ -275,12 +217,14 @@ app.post("/photos", requireAdmin, upload.single("file"), async (req, res) => {
 
     if (!fileUrl)
       return res.status(400).json({ error: "file or url required" });
-    if (!orient)
-      return res
-        .status(400)
-        .json({ error: "orientation required (ou auto via fichier)" });
+    if (!orient) return res.status(400).json({ error: "orientation required" });
 
-    const photo = { id: nanoid(10), albumId, url: fileUrl, orientation: orient };
+    const photo = {
+      id: nanoid(10),
+      albumId,
+      url: fileUrl,
+      orientation: orient,
+    };
     album.photos.push(photo);
     res.status(201).json(photo);
   } catch (e) {
@@ -301,23 +245,19 @@ app.delete("/photos/:id", requireAdmin, (req, res) => {
 });
 
 /* =========================
-   Routes diverses
+   Divers
 ========================= */
 app.get("/", (_req, res) => res.send("✅ Mochi backend en ligne"));
 app.get("/version", (_req, res) =>
-  res.json({
-    node: process.version,
-    env: NODE_ENV,
-    origins: ALLOWED_ORIGINS,
-  })
+  res.json({ node: process.version, env: NODE_ENV, origins: ALLOWED_ORIGINS })
 );
 
 /* =========================
-   Démarrage serveur
+   Start
 ========================= */
 app.listen(PORT, () => {
-  console.log(`✅ Backend en ligne sur http://127.0.0.1:${PORT}`);
-  console.log("CORS autorisés :", ALLOWED_ORIGINS);
-  console.log(`Cloudinary configuré : ${CLOUD_OK ? "oui" : "non"}`);
+  console.log(`✅ Server listening on port ${PORT}`);
+  console.log("CORS allowed :", ALLOWED_ORIGINS);
+  console.log(`Cloudinary configured : ${CLOUD_OK ? "yes" : "no"}`);
   console.log(`NODE_ENV : ${NODE_ENV}`);
 });
