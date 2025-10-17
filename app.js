@@ -3,7 +3,27 @@ const PROD_API = "https://mochi-backend-ingj.onrender.com"; // ← remplace par 
 const isProdHost = /github\.io|netlify\.app$/i.test(location.hostname);
 const API = isProdHost ? PROD_API : "http://127.0.0.1:5000";
 
-/* ================ SÉLECTEURS (peuvent être null au tout début) ================ */
+/* ================ TOKEN HELPERS (fallback cookies tiers) ================ */
+function getToken() {
+  try {
+    return localStorage.getItem("mochi_token") || "";
+  } catch {
+    return "";
+  }
+}
+function setToken(t) {
+  try {
+    t
+      ? localStorage.setItem("mochi_token", t)
+      : localStorage.removeItem("mochi_token");
+  } catch {}
+}
+function authHeaders() {
+  const t = getToken();
+  return t ? { Authorization: "Bearer " + t } : {};
+}
+
+/* ================ SÉLECTEURS ================ */
 const albumsView = document.getElementById("albums-view");
 const albumsGrid = document.getElementById("albums-grid");
 const photosView = document.getElementById("photos-view");
@@ -15,7 +35,7 @@ const homeLink = document.getElementById("home-link");
 const btnPortrait = document.querySelector('[data-filter="portrait"]');
 const btnLandscape = document.querySelector('[data-filter="landscape"]');
 
-/* Admin UI: on re-query à chaque fois dans toggleAdminUI() */
+/* Admin UI */
 const loginForm = document.getElementById("login-form");
 const logoutBtn = document.getElementById("logout-btn");
 const createAlbumForm = document.getElementById("create-album-form");
@@ -58,7 +78,7 @@ function getCurrentPhotoList() {
   return currentAlbum.photos.filter((p) => p.orientation === currentFilter);
 }
 
-/* 🔧 Robuste: recalcule les refs DOM et enlève toujours 'hidden' */
+/* 🔧 Recalcule les refs DOM et enlève toujours 'hidden' */
 function toggleAdminUI() {
   const panel = document.getElementById("admin-panel");
   if (!panel) return;
@@ -77,7 +97,10 @@ function toggleAdminUI() {
 /* ================ API ================ */
 async function checkAuth() {
   try {
-    const r = await fetch(`${API}/auth/me`, { credentials: "include" });
+    const r = await fetch(`${API}/auth/me`, {
+      credentials: "include",
+      headers: authHeaders(),
+    });
     const j = await r.json();
     isAdmin = !!j.authenticated;
   } catch {
@@ -87,7 +110,10 @@ async function checkAuth() {
 }
 async function loadAlbums() {
   try {
-    const res = await fetch(`${API}/albums`, { credentials: "include" });
+    const res = await fetch(`${API}/albums`, {
+      credentials: "include",
+      headers: authHeaders(),
+    });
     if (!res.ok) throw new Error("Erreur /albums " + res.status);
     albums = await res.json();
     renderAlbums();
@@ -221,7 +247,11 @@ document.getElementById("albums-grid")?.addEventListener("click", (e) => {
   if (del && isAdmin) {
     const id = del.dataset.delAlbum;
     if (confirm("Supprimer cet album ?")) {
-      fetch(`${API}/albums/${id}`, { method: "DELETE", credentials: "include" })
+      fetch(`${API}/albums/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: authHeaders(),
+      })
         .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
         .then(() => {
           albums = albums.filter((a) => a.id !== id);
@@ -247,7 +277,11 @@ document.getElementById("photos-grid")?.addEventListener("click", (e) => {
   if (del && isAdmin) {
     const id = del.dataset.delPhoto;
     if (confirm("Supprimer cette photo ?")) {
-      fetch(`${API}/photos/${id}`, { method: "DELETE", credentials: "include" })
+      fetch(`${API}/photos/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: authHeaders(),
+      })
         .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
         .then(() => {
           currentAlbum.photos = currentAlbum.photos.filter((p) => p.id !== id);
@@ -294,11 +328,16 @@ document.getElementById("login-form")?.addEventListener("submit", async (e) => {
   try {
     const r = await fetch(`${API}/auth/login`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
       credentials: "include",
       body: JSON.stringify(body),
     });
-    if (!r.ok) throw new Error("Login invalide");
+    const j = await r.json();
+    if (!r.ok) throw new Error(j?.error || "Login invalide");
+
+    // Sauvegarde du token (contourne le blocage des cookies tiers)
+    if (j?.token) setToken(j.token);
+
     isAdmin = true;
     toggleAdminUI();
     await loadAlbums();
@@ -308,7 +347,11 @@ document.getElementById("login-form")?.addEventListener("submit", async (e) => {
   }
 });
 document.getElementById("logout-btn")?.addEventListener("click", async () => {
-  await fetch(`${API}/auth/logout`, { credentials: "include" });
+  setToken(""); // supprime le Bearer local
+  await fetch(`${API}/auth/logout`, {
+    credentials: "include",
+    headers: authHeaders(),
+  });
   isAdmin = false;
   toggleAdminUI();
 });
@@ -331,7 +374,7 @@ document
     try {
       let r = await fetch(`${API}/albums`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         credentials: "include",
         body: JSON.stringify({ title }),
       });
@@ -351,12 +394,13 @@ document
           r = await fetch(`${API}/photos`, {
             method: "POST",
             credentials: "include",
+            headers: authHeaders(),
             body: form,
           });
         } else {
           r = await fetch(`${API}/photos`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...authHeaders() },
             credentials: "include",
             body: JSON.stringify({
               albumId: album.id,
@@ -390,16 +434,12 @@ document
   });
 
 /* ================ INIT ================ */
-/* Script charge dans le <head> ; le DOM <body> n'est pas garanti.
-   On force l'affichage du panneau après le premier tick, puis on continue. */
 console.log("[Mochi] API =", API, "| host =", location.hostname);
 setFilter("portrait");
-// 1) montrer l'UI admin en déconnecté dès que possible
 requestAnimationFrame(() => {
   isAdmin = false;
   toggleAdminUI();
 });
-// 2) ensuite on check l'auth et on charge
 (async () => {
   try {
     await checkAuth();
@@ -407,7 +447,6 @@ requestAnimationFrame(() => {
   try {
     await loadAlbums();
   } catch {}
-  // Filet de sécurité : si jamais le panel était encore caché, on le ré-affiche
   setTimeout(() => {
     isAdmin = false;
     toggleAdminUI();

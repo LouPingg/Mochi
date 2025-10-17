@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Mochi pics</title>
     <link rel="stylesheet" href="style.css" />
-    <script src="./app.js"></script>
+    <!-- favicon (facultatif, sinon 404 logique) -->
+    <link rel="icon" href="assets/favicon.ico" />
+    <!-- IMPORTANT: defer + cache-bust pour GitHub Pages -->
+    <script src="./app.js?v=20251017" defer></script>
   </head>
   <body>
     <header class="site-header">
@@ -52,7 +55,7 @@
             />
           </div>
           <button type="submit" class="btn">Se connecter</button>
-          <small class="hint">Cookie de session HttpOnly (7 jours)</small>
+          <small class="hint">Token Bearer (fallback) + Cookie HttpOnly</small>
         </form>
 
         <!-- Connecté -->

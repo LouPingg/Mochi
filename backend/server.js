@@ -89,8 +89,14 @@ const db = {
 /* =========================
    Auth helpers
 ========================= */
+function getTokenFromReq(req) {
+  const cookieTok = req.cookies?.token;
+  const auth = req.get("Authorization") || "";
+  const m = auth.match(/^Bearer\s+(.+)$/i);
+  return cookieTok || (m ? m[1] : null);
+}
 function requireAdmin(req, res, next) {
-  const token = req.cookies?.token;
+  const token = getTokenFromReq(req);
   if (!token) return res.status(401).json({ error: "unauthorized" });
   try {
     jwt.verify(token, JWT_SECRET);
@@ -115,14 +121,18 @@ app.post("/auth/login", async (req, res) => {
   const ok = await bcrypt.compare(password || "", ADMIN_PASSWORD_HASH);
   if (!ok) return res.status(401).json({ error: "bad credentials" });
 
-  const token = jwt.sign({ role: "admin" }, JWT_SECRET, { expiresIn: "2h" });
+  const token = jwt.sign({ role: "admin" }, JWT_SECRET, { expiresIn: "7d" });
+
+  // Cookie (compat local / même domaine)
   res.cookie("token", token, {
     httpOnly: true,
     sameSite: NODE_ENV === "production" ? "None" : "lax",
     secure: NODE_ENV === "production",
-    maxAge: 2 * 60 * 60 * 1000,
+    maxAge: 7 * 24 * 60 * 60 * 1000,
   });
-  res.json({ ok: true });
+
+  // Renvoi aussi le token (fallback pour GitHub Pages ⇄ Render)
+  res.json({ ok: true, token });
 });
 
 app.post("/auth/logout", (req, res) => {
@@ -131,7 +141,7 @@ app.post("/auth/logout", (req, res) => {
 });
 
 app.get("/auth/me", (req, res) => {
-  const token = req.cookies?.token;
+  const token = getTokenFromReq(req);
   if (!token) return res.json({ authenticated: false });
   try {
     jwt.verify(token, JWT_SECRET);
@@ -146,7 +156,6 @@ app.get("/auth/me", (req, res) => {
 ========================= */
 app.get("/albums", (_req, res) => res.json(db.albums));
 
-/* POST /albums simplifié : uniquement title */
 app.post("/albums", requireAdmin, async (req, res) => {
   try {
     const { title } = req.body || {};
