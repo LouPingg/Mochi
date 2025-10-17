@@ -3,7 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import jwt from "jsonwebtoken";
-import bcrypt from "bcryptjs"; // bcryptjs : compatible Render
+import bcrypt from "bcryptjs";
 import { nanoid } from "nanoid";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
@@ -34,7 +34,7 @@ app.get("/ping", (_req, res) => res.status(200).type("text/plain").send("ok"));
 app.head("/ping", (_req, res) => res.sendStatus(200));
 
 /* =========================
-   CORS configuration
+   CORS HARDENED PATCH (fix GitHub Pages)
 ========================= */
 const RAW_ORIGINS =
   CORS_ORIGINS ||
@@ -45,21 +45,23 @@ const ALLOWED_ORIGINS = RAW_ORIGINS.split(",")
   .map((s) => s.trim())
   .filter(Boolean);
 
-const corsOptions = {
-  credentials: true,
-  origin(origin, cb) {
-    if (!origin) return cb(null, true); // ex: curl / server-to-server
-    if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
-    console.warn("❌ CORS blocked origin:", origin);
-    return cb(new Error("CORS not allowed: " + origin), false);
-  },
-  methods: ["GET", "POST", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  optionsSuccessStatus: 204,
-};
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+    res.header("Vary", "Origin");
+    res.header("Access-Control-Allow-Credentials", "true");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.header("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
+  }
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
 
-app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
+/* =========================
+   Middleware standard
+========================= */
+app.use(cors({ credentials: true, origin: ALLOWED_ORIGINS }));
 app.use(express.json());
 app.use(cookieParser());
 
@@ -154,7 +156,6 @@ app.post("/auth/login", async (req, res) => {
     secure: NODE_ENV === "production",
     maxAge: 2 * 60 * 60 * 1000,
   });
-  // on renvoie aussi le token pour le fallback localStorage côté front
   res.json({ ok: true, token });
 });
 
